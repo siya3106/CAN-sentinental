@@ -1,0 +1,3 @@
+# Models directory
+# Trained Isolation Forest model: isolation_forest.joblib
+# Metadata: model_metadata.json

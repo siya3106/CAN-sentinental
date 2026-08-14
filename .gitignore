@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# C build artifacts
+*.o
+*.obj
+*.out
+*.exe
+*.bin
+*.a
+bin/
+build/
+dist/
+
+# Binaries from C source
+src/c/can_broadcaster
+src/c/ecu_sim
+src/c/attack_injector
+src/c/sniffer
+src/c/ipc_bridge
+src/c/error_frame_injector
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IPC sockets & temp files
+*.sock
+/tmp/can_sentinel.sock
+
+# Logs & dynamic runtime output
+logs/*.log
+logs/*.json
+!logs/.gitkeep
+
+# Datasets (large generated files - preserve samples)
+dataset/*.csv
+!dataset/.gitkeep
+
+# ML Models
+models/*.joblib
+models/*.pkl
+!models/.gitkeep
+
+# IDEs & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Test coverage & caches
+.pytest_cache/
+.coverage
+htmlcov/

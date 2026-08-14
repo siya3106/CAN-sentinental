@@ -1,0 +1,16 @@
+# CAN-Sentinel Python Dependencies
+# Core ML and Data Science
+scikit-learn>=1.3.0
+joblib>=1.3.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Automotive CAN Bus Integration
+python-can>=4.3.0
+
+# GUI & Visualization (Phase 4)
+PySide6>=6.5.0
+matplotlib>=3.7.0
+
+# Testing & Utilities
+pytest>=7.4.0

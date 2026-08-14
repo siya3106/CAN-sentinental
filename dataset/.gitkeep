@@ -1,0 +1,3 @@
+# Dataset storage directory
+# Baseline normal traffic: normal_traffic.csv
+# Attack injection datasets: attack_traffic.csv, mixed_eval.csv
