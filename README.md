@@ -3,7 +3,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20SocketCAN%20%7C%20Cross--Platform-blue.svg)](#)
 [![Language](https://img.shields.io/badge/Language-C%20%2F%20Python%203.10+-brightgreen.svg)](#)
 [![ML](https://img.shields.io/badge/ML-Isolation%20Forest%20%28Scikit--Learn%29-orange.svg)](#)
-[![Status](https://img.shields.io/badge/Milestone-Phase%201%20%28Day%201%20Completed%29-success.svg)](#)
+[![Status](https://img.shields.io/badge/Milestone-Phase%201%20%28Day%202%20Completed%29-success.svg)](#)
 
 CAN-Sentinel is an automotive Intrusion Detection System (IDS) and diagnostic monitoring platform engineered for Controller Area Network (CAN) vehicle bus architectures. It combines low-level Linux SocketCAN C broadcasters and sniffers, inter-process communication (IPC) streaming pipelines, machine learning anomaly detection using Isolation Forests with Shannon entropy & $\Delta t$ inter-arrival time features, active error-frame defense countermeasures, and a desktop diagnostic dashboard featuring interactive 2D vehicle topology visualization.
 
@@ -13,7 +13,7 @@ CAN-Sentinel is an automotive Intrusion Detection System (IDS) and diagnostic mo
 
 | Phase | Focus | Days | Status |
 | :--- | :--- | :--- | :--- |
-| **Phase 1** | **Environment Setup & Low-Level Traffic Simulation** | Days 1–5 | **In Progress (Day 1 Complete)** |
+| **Phase 1** | **Environment Setup & Low-Level Traffic Simulation** | Days 1–5 | **In Progress (Days 1–2 Complete)** |
 | **Phase 2** | **Attack Simulation & ML Anomaly Detection** | Days 6–10 | Planned |
 | **Phase 3** | **Live IPC Integration & C Sniffer** | Days 11–15 | Planned |
 | **Phase 4** | **Diagnostic Dashboard & Countermeasures** | Days 16–20 | Planned |
@@ -24,7 +24,8 @@ CAN-Sentinel is an automotive Intrusion Detection System (IDS) and diagnostic mo
 
 - [x] **Day 1**: Environment & Virtual Interface Configuration (`scripts/setup_vcan.sh`, `scripts/teardown_vcan.sh`, repository scaffolding).
   - **Commit 1**: `chore: initialize repository structure and vcan setup script`
-- [ ] **Day 2**: Raw C SocketCAN Broadcaster (`src/c/can_broadcaster.c`).
+- [x] **Day 2**: Raw C SocketCAN Broadcaster (`src/c/can_broadcaster.c`, `src/c/can_sentinel_common.h`).
+  - **Commit 2**: `feat(can): implement raw C SocketCAN broadcaster and frame crafting engine`
 - [ ] **Day 3**: Multi-ECU Telemetry Simulation (Engine `0x110`/`0x120`, Body `0x230`, Transmission `0x180`).
 - [ ] **Day 4**: Python SocketCAN Telemetry Parser (payload decoding & $\Delta t$ delta time).
 - [ ] **Day 5**: Forensic CSV Data Logger (`dataset/normal_traffic.csv`).
@@ -42,7 +43,9 @@ can-sentinel/
 │   ├── setup_vcan.sh              # Day 1: Linux vcan0 initialization script
 │   └── teardown_vcan.sh           # Day 1: vcan0 teardown & cleanup script
 ├── src/
-│   ├── c/                         # Low-level C SocketCAN tools (broadcaster, sniffer, attack)
+│   ├── c/
+│   │   ├── can_sentinel_common.h  # Common arbitration IDs, structs & formatting macros
+│   │   └── can_broadcaster.c      # Day 2: Low-level C SocketCAN broadcaster & frame crafter
 │   ├── sim/                       # Multi-ECU telemetry generators & bus emulators
 │   ├── parser/                    # Frame parsers & signal decoders
 │   ├── logger/                    # Forensic CSV & JSON telemetry loggers
@@ -55,7 +58,8 @@ can-sentinel/
 ├── dataset/                       # Normal & attack telemetry datasets
 ├── models/                        # Serialized ML models (.joblib) & metadata
 ├── logs/                          # Forensic alert logs (alerts.json)
-└── tests/                         # Automated unit & integration tests
+└── tests/
+    └── test_broadcaster.py        # Day 2: Frame packing and arbitration tests
 ```
 
 ---
@@ -86,19 +90,36 @@ Inspect the network link using `iproute2` or `candump`:
 ip link show vcan0
 ```
 
-Test generating and sniffing frames:
-```bash
-# Terminal 1: Sniff traffic
-candump vcan0
+---
 
-# Terminal 2: Broadcast a test frame (ID 0x123, Payload: DEADBEEF)
-cansend vcan0 123#DEADBEEF
+## Day 2 Guide: Raw C SocketCAN Broadcaster
+
+### 1. Build C Broadcaster
+Compile using `make`:
+```bash
+make bin/can_broadcaster
+# Or compile directly:
+gcc -Wall -Wextra -O2 -Isrc/c src/c/can_broadcaster.c -o bin/can_broadcaster -pthread
 ```
 
-### 4. Teardown Interface
-When finished, cleanly bring down and delete the virtual link:
+### 2. Broadcast CAN Frames
+Send single or periodic CAN frames onto `vcan0`:
+
 ```bash
-sudo bash scripts/teardown_vcan.sh
+# Broadcast Engine RPM (ID: 0x110, Payload: 0x09C4 / 2500 RPM) at 50 Hz (20ms period)
+./bin/can_broadcaster -i vcan0 -d 0x110 -p 09C40100 -c 100 -r 50
+
+# Broadcast Speed (ID: 0x120) every 100ms
+./bin/can_broadcaster -i vcan0 -d 0x120 -p 4500 -t 100
+
+# Run dynamic multi-ECU telemetry demonstration generator
+./bin/can_broadcaster -i vcan0 -m
+```
+
+### 3. Sniff Broadcasted Frames
+In a separate terminal:
+```bash
+candump vcan0
 ```
 
 ---
