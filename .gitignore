@@ -42,6 +42,7 @@ logs/*.json
 # Datasets (large generated files - preserve samples)
 dataset/*.csv
 !dataset/.gitkeep
+!dataset/normal_traffic.csv
 
 # ML Models
 models/*.joblib
