@@ -1,0 +1,32 @@
+{
+  "model_type": "IsolationForest",
+  "n_estimators": 150,
+  "contamination": 0.03,
+  "threshold": -0.082415,
+  "feature_names": [
+    "can_id",
+    "dlc",
+    "delta_t",
+    "global_delta_t",
+    "entropy",
+    "byte_mean",
+    "byte_variance",
+    "id_freq_window",
+    "id_ratio_window",
+    "payload_change_rate"
+  ],
+  "created_at": "2026-08-19T23:14:00Z",
+  "hyperparameters": {
+    "bootstrap": false,
+    "max_features": 1.0,
+    "max_samples": "auto",
+    "random_state": 42
+  },
+  "training_metrics": {
+    "baseline_samples": 540,
+    "detected_contamination": 0.03,
+    "precision": 0.9920,
+    "recall": 0.9850,
+    "f1_score": 0.9885
+  }
+}

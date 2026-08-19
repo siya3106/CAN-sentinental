@@ -2,9 +2,10 @@
 
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20SocketCAN%20%7C%20Cross--Platform-blue.svg)](#)
 [![Language](https://img.shields.io/badge/Language-C%20%2F%20Python%203.10+-brightgreen.svg)](#)
-[![Status](https://img.shields.io/badge/Phase%202-Day%206%20Complete-blue.svg)](#)
+[![ML](https://img.shields.io/badge/Model-Isolation%20Forest%20%28Scikit--Learn%29-orange.svg)](#)
+[![Status](https://img.shields.io/badge/Phase%202-Day%208%20Complete-blue.svg)](#)
 
-CAN-Sentinel is an automotive Intrusion Detection System (IDS) and forensic diagnostic monitoring platform engineered for Controller Area Network (CAN) vehicle bus architectures. It combines low-level Linux SocketCAN C broadcasters and multi-threaded ECU simulators, high-speed telemetry frame parsing with microsecond inter-arrival delta time ($\Delta t$) tracking, Shannon entropy estimation, forensic CSV telemetry data logging, and comprehensive malware/attack injection suites.
+CAN-Sentinel is an automotive Intrusion Detection System (IDS) and forensic diagnostic monitoring platform engineered for Controller Area Network (CAN) vehicle bus architectures. It combines low-level Linux SocketCAN C broadcasters and multi-threaded ECU simulators, high-speed telemetry frame parsing with microsecond inter-arrival delta time ($\Delta t$) tracking, Shannon entropy estimation, forensic CSV telemetry data logging, malware/attack injection suites, and an unsupervised **Isolation Forest** machine learning detection engine.
 
 ---
 
@@ -17,6 +18,8 @@ CAN-Sentinel is an automotive Intrusion Detection System (IDS) and forensic diag
 - **SocketCAN Telemetry Parser & Signal Decoder**: `src/parser/telemetry_parser.py` parsing raw frames, decoding vehicle DBC signals, and computing per-ID delta times ($\Delta t$) and Shannon entropy.
 - **Forensic CSV Telemetry Data Logger**: `src/logger/csv_logger.py` streaming parsed telemetry to `dataset/normal_traffic.csv` for baseline modeling.
 - **Malware & Attack Injection Suite**: `src/c/attack_injector.c` and `src/attacks/attack_suite.py` simulating high-frequency DoS flooding, Brake/Engine spoofing, randomized payload fuzzing, and replay attacks.
+- **Feature Engineering & Preprocessing Pipeline**: `src/ml/features.py` extracting 10 temporal, statistical, and information-theoretic features per frame.
+- **Unsupervised Isolation Forest IDS**: `src/ml/train_isolation_forest.py` with hyperparameter tuning (`n_estimators=150`, `contamination=0.03`) for sub-millisecond anomaly detection.
 
 ---
 
@@ -44,7 +47,9 @@ can-sentinel/
 │   │   └── csv_logger.py          # Forensic CSV telemetry data logger
 │   ├── attacks/
 │   │   └── attack_suite.py        # Python attack injection & dataset generation suite
-│   ├── ml/                        # ML anomaly detection pipelines
+│   ├── ml/
+│   │   ├── features.py            # Feature engineering & sliding-window preprocessor
+│   │   └── train_isolation_forest.py # Isolation Forest trainer & inference engine
 │   ├── ipc/                       # Socket IPC streaming bridges
 │   ├── detection/                 # Real-time streaming detector
 │   ├── defense/                   # Active error-frame mitigation
@@ -52,36 +57,48 @@ can-sentinel/
 ├── dataset/
 │   ├── normal_traffic.csv         # Baseline normal vehicle telemetry dataset
 │   └── attack_traffic.csv         # Labeled attack injection evaluation dataset
-├── models/                        # Serialized ML models & metadata
+├── models/
+│   └── model_metadata.json        # Serialized ML metadata, features, and threshold
 ├── logs/                          # Forensic alert logs
 └── tests/
     ├── test_broadcaster.py        # Frame packing and arbitration tests
     ├── test_sim.py                # Multi-ECU simulation & timing tests
     ├── test_parser.py             # Telemetry parser & entropy tests
     ├── test_logger.py             # CSV logger & schema tests
-    └── test_attack.py             # Attack simulation & burst tests
+    ├── test_attack.py             # Attack simulation & burst tests
+    └── test_ml.py                 # Feature engineering & Isolation Forest tests
 ```
 
 ---
 
-## Attack Vectors & Injection Profiles
+## Machine Learning Feature Matrix
 
-| Attack Vector | Mode Flag | Target CAN ID | Typical Rate | Impact on Vehicle Bus |
-| :--- | :--- | :--- | :--- | :--- |
-| **DoS Bus Flood** | `flood` | `0x000` (Dominant) | 2,500+ fps | Starves bus arbitration, delaying critical safety packets |
-| **Brake Override Spoof** | `spoof-brake`| `0x0A0` (Brake ECU) | 150 fps | Forces 100% false brake pressure and ABS locks |
-| **Engine Cutoff Spoof** | `spoof-engine`| `0x110` (Engine ECU) | 150 fps | Injects RPM=0 and engine shutdown status |
-| **Payload Fuzzing** | `fuzz` | Randomized `0x001`-`0x7FE`| 800 fps | High-entropy payloads to trigger ECU memory faults |
-| **Replay Attack** | `replay` | Recorded IDs | 1,000 fps | Re-transmits legitimate frames out of context |
+The feature extraction engine extracts 10 features per incoming CAN frame:
+
+| Feature Index | Feature Name | Description | Purpose in Anomaly Detection |
+| :--- | :--- | :--- | :--- |
+| `0` | `can_id` | Numeric Arbitration Identifier | Detects unauthorized or rogue IDs |
+| `1` | `dlc` | Data Length Code (0–8) | Identifies payload length anomalies |
+| `2` | `delta_t` | Per-ID inter-arrival delta time (s) | Flags high-frequency flood & timing jitter |
+| `3` | `global_delta_t` | Global bus inter-frame delta time (s)| Measures overall bus congestion |
+| `4` | `entropy` | Shannon entropy of payload bytes | Identifies random fuzzing and encrypted payloads |
+| `5` | `byte_mean` | Arithmetic mean of payload bytes | Detects constant or skewed payload injections |
+| `6` | `byte_variance` | Variance of payload bytes | Measures byte dispersion |
+| `7` | `id_freq_window` | Message count in rolling window ($W=50$) | Detects DoS bus monopolization |
+| `8` | `id_ratio_window`| Ratio of target ID in window ($N_{ID} / W$) | Detects bus starvation of legitimate ECUs |
+| `9` | `payload_change_rate` | Byte difference vs previous frame | Detects erratic spoofed signal mutations |
 
 ---
 
 ## Getting Started & Usage Guide
 
-### 1. Initialize Virtual CAN (`vcan0`)
-On a Linux host with `can-utils`:
+### 1. Train the Isolation Forest IDS Model
 ```bash
-sudo bash scripts/setup_vcan.sh
+python -m src.ml.train_isolation_forest \
+  --train dataset/normal_traffic.csv \
+  --eval dataset/attack_traffic.csv \
+  --output models/isolation_forest.joblib \
+  --meta models/model_metadata.json
 ```
 
 ### 2. Run Normal Multi-ECU Simulation
@@ -99,9 +116,6 @@ make bin/attack_injector
 
 # Launch Spoofed Brake Override
 ./bin/attack_injector -i vcan0 -m spoof-brake -c 200 -r 150
-
-# Launch Random Fuzzing
-./bin/attack_injector -i vcan0 -m fuzz -c 500 -r 800
 ```
 
 ### 4. Run Automated Test Suite

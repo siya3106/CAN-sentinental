@@ -49,6 +49,7 @@ dataset/*.csv
 models/*.joblib
 models/*.pkl
 !models/.gitkeep
+!models/model_metadata.json
 
 # IDEs & OS
 .vscode/
