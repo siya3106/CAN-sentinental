@@ -43,6 +43,7 @@ logs/*.json
 dataset/*.csv
 !dataset/.gitkeep
 !dataset/normal_traffic.csv
+!dataset/attack_traffic.csv
 
 # ML Models
 models/*.joblib
